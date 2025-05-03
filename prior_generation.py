@@ -480,7 +480,7 @@ def evaluate_tree_performance(
 
 def create_structural_prior(
     subtrees_path,
-    selected_indices=None,
+    not_selected_indices=None,
     output_file=None
 ):
     """
@@ -488,7 +488,7 @@ def create_structural_prior(
     
     Args:
         subtrees_path: 包含生成子树的 JSON 文件的路径
-        selected_indices: 要选择的树索引列表，None 表示选择所有索引 >= 1 的树
+        not_selected_indices: 要跳过的树索引列表，None 表示选择所有索引 >= 1 的树
         output_file: 输出文件路径，None 表示在原目录创建 "structural_priors.json"
         
     Returns:
@@ -500,14 +500,12 @@ def create_structural_prior(
         all_trees = json.load(f)
     
     # 确定要选择的树索引
-    if selected_indices is None:
+    if not_selected_indices is None:
         # 默认选择除了索引0以外的所有树（包括索引1的原始展开树）
-        selected_indices = list(range(1, len(all_trees)))
-    
-    print(f"选择 {len(selected_indices)} 棵树作为先验: {selected_indices}")
+        not_selected_indices = list(range(1, len(all_trees)))
     
     # 选择指定的树
-    selected_trees = [all_trees[i] for i in selected_indices if i < len(all_trees)]
+    selected_trees = [all_trees[i] for i in not_selected_indices if i < len(all_trees)]
     
     if not selected_trees:
         print("警告: 没有选择任何树作为结构先验")
@@ -589,7 +587,7 @@ def run_complete_pipeline(
     num_samples_per_class=100,
     skip_indices=[0],
     create_priors=True,
-    selected_prior_indices=None
+    not_selected_prior_indices=None
 ):
     """
     运行完整的结构先验生成和评估流程
@@ -604,7 +602,7 @@ def run_complete_pipeline(
         num_samples_per_class: 每个类别生成的样本数
         skip_indices: 数据生成时要跳过的树索引
         create_priors: 是否创建结构先验
-        selected_prior_indices: 作为结构先验的树索引
+        not_selected_prior_indices: 作为结构先验的树索引
         
     Returns:
         dict: 包含流程所有输出的字典
@@ -674,7 +672,7 @@ def run_complete_pipeline(
             print(f"\n=== 步骤 4: 为疾病 '{disease_name}' 创建结构先验 ===")
             priors_path = create_structural_prior(
                 subtrees_path=subtrees_path,
-                selected_indices=selected_prior_indices
+                not_selected_indices=not_selected_prior_indices
             )
             
             if priors_path:
@@ -722,8 +720,8 @@ def main():
         'skip_indices': [0],  # 数据生成时要跳过的树索引，在这里只有idx=1是ground truth，要用来生成结构先验
         
         # 结构先验参数
-        'create_priors': True,  # 是否创建结构先验
-        'selected_prior_indices': None,  # 自动选择所有生成的树作为结构先验
+        'create_priors': True,  # 是否创建结构先验文件
+        'not_selected_prior_indices': [0, 1],  # 跳过idx=0 (原始树) 和 idx=1 (原始树展开) 作为结构先验
     }
     
     # 检查数据集文件是否存在
