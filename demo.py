@@ -20,7 +20,7 @@ new_tree_numerical = [[0, 3, 0.3, -1, 0, np.nan, np.nan, np.nan],
 # 2. Specify the path to your prior trees file
 priors_file = "/data/hzy/xh/dtfl/project/data/0503_081537/WD/structural_priors.json"
 
-# 3. (Optional) Define custom bounds if needed
+# 3. (Optional) Define custom bounds if needed, otherwise use the default bounds (0, 1) for all features
 custom_bounds = [(0, 1), (0, 10), (-5, 5), (0, 1), (0, 1)] # Example
 
 # 4. Calculate the average similarity

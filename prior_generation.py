@@ -499,13 +499,8 @@ def create_structural_prior(
     with open(subtrees_path, 'r') as f:
         all_trees = json.load(f)
     
-    # 确定要选择的树索引
-    if not_selected_indices is None:
-        # 默认选择除了索引0以外的所有树（包括索引1的原始展开树）
-        not_selected_indices = list(range(1, len(all_trees)))
-    
     # 选择指定的树
-    selected_trees = [all_trees[i] for i in not_selected_indices if i < len(all_trees)]
+    selected_trees = [all_trees[i] for i in range(len(all_trees)) if i not in not_selected_indices]
     
     if not selected_trees:
         print("警告: 没有选择任何树作为结构先验")
@@ -694,15 +689,15 @@ def main():
         'dataset_path': "all_trees.json",  # 原始树数据集路径
         'output_dir': None,  # 自动生成带时间戳的目录
         'num_sample_data': 1,  # 采样树的数量（此处设为1以加快演示）
-        'num_desired_subtrees': 10,  # 每棵采样树生成的子树数量
+        'num_desired_subtrees': 1,  # 每棵采样树生成的子树数量
         
         # 树采样参数 - 更宽松的参数，以便通过质量检查
         'sample_params': {
             'depth_low': 3,      # 从最小深度1开始
             'depth_high': 10,    # 最大深度增至10
-            'K_low': 3,          # 最少1个分类
+            'K_low': 3,          # 最少3个分类
             'K_high': 20,        # 最多20个分类
-        'condition_count_low': 5,  # 最少1个条件
+            'condition_count_low': 5,  # 最少5个条件
             'condition_count_high': 30, # 最多30个条件
         },
         
@@ -716,8 +711,8 @@ def main():
         },
         
         # 数据生成参数
-        'num_samples_per_class': 500,  # 每个类别生成的样本数
-        'skip_indices': [0],  # 数据生成时要跳过的树索引，在这里只有idx=1是ground truth，要用来生成结构先验
+        'num_samples_per_class': 5,  # 每个类别生成的样本数
+        'skip_indices': [0],  # 数据生成时要跳过的树索引，在这里只有idx=0是原始树，不用来做任何事情
         
         # 结构先验参数
         'create_priors': True,  # 是否创建结构先验文件
