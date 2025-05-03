@@ -369,7 +369,7 @@ def compare_trees(tree1, tree2, feature_names, classes_, bounds, comp_dist=False
         dist_similarity = 0
         if comp_dist:
             # Compare the distribution of the class labels
-            dist_similarity = jensenshannon(branch1["probas"], branch2["probas"])
+            dist_similarity = 1 - jensenshannon(branch1["probas"], branch2["probas"], base=2)
         else:
             # step 1: compare the class label
             class_label_1 = np.argmax(branch1["probas"])

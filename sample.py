@@ -536,5 +536,11 @@ def main():
             json.dump(sampled_tree, f, indent=2)
         plot_tree(subtrees_output_path)
 
+    # --- Output key file paths for downstream tasks ---
+    print(f"Generated Subtrees JSON: {os.path.abspath(subtrees_output_path)}")
+    print(f"Sampled Tree JSON: {os.path.abspath(original_tree_output_path)}")
+    # Also print the directory containing these files
+    print(f"Output Directory: {os.path.abspath(os.path.dirname(subtrees_output_path))}")
+
 if __name__ == "__main__":
     main()

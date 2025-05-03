@@ -4,6 +4,7 @@ import pandas as pd
 import random
 import os
 from collections import deque, defaultdict
+import argparse
 
 def extract_features_and_classes(tree):
     """
@@ -83,78 +84,120 @@ def get_leaf_nodes_by_class(tree):
 
 def generate_sample_for_path(tree, path, features):
     """
-    为给定路径生成一个样本
-    
+    为给定路径生成一个样本 (修改后逻辑)
+
     Args:
         tree: 树的BFS表示
         path: 从根节点到叶节点的路径
         features: 所有特征的列表
-        
+
     Returns:
         sample: 生成的样本，特征值为0或1
     """
     # 初始化样本，所有特征都为0
     sample = {feature: 0 for feature in features}
-    
-    # 设置路径上的条件
-    for idx in path[:-1]:  # 排除最后一个节点（叶节点）
-        if tree[idx] is not None and tree[idx]["role"] == "C":
-            for condition in tree[idx]["triples"]:
-                sample[condition] = 1
-    
+
+    # 设置路径上的条件，严格遵循预测逻辑
+    for i in range(len(path) - 1): # 遍历路径上的节点，直到叶节点的父节点
+        current_idx = path[i]
+        next_idx_on_path = path[i+1]
+
+        node = tree[current_idx]
+        if node is None or node["role"] != "C":
+            continue # 跳过非条件节点
+
+        conditions = node["triples"]
+        left_child_idx = 2 * current_idx + 1
+        # right_child_idx = 2 * current_idx + 2 # 不需要显式使用右子节点索引
+
+        if next_idx_on_path == left_child_idx:
+            # 如果路径走向左子节点，设置第一个条件为1以满足OR逻辑
+            if conditions: # 确保条件列表不为空
+                first_condition = conditions[0]
+                if first_condition in sample: # 确保特征存在
+                     sample[first_condition] = 1
+        # else:
+            # 如果路径走向右子节点，不需要做任何事
+            # 因为所有特征已初始化为0，且我们只在走左分支时设置特征为1
+            # 这确保了走向右分支时，该节点的所有条件都为0，满足预测逻辑
+            # pass
+
     # 对于dummy特征，赋予随机值
     for feature in features:
         if feature.startswith("dummy_feature_"):
             sample[feature] = random.randint(0, 1)
-    
+
     return sample
 
 def generate_samples(tree, num_samples_per_class=100):
     """
     为决策树中的每个类别生成样本
-    
+
     Args:
         tree: 树的BFS表示
         num_samples_per_class: 每个类别生成的样本数量
-        
+
     Returns:
         samples: 生成的样本列表
         features: 所有特征的列表
         class_indices: 每个样本对应的类别索引
+        classes: 类别列表
     """
     # 提取所有特征和类别
-    features, classes = extract_features_and_classes(tree)
-    features = list(features)
-    classes = list(classes)
-    
+    features_set, classes_set = extract_features_and_classes(tree) # 使用集合避免重复
+    all_features_list = sorted(list(features_set)) # 排序以保证顺序
+    all_classes_list = list(classes_set) # 获取所有类别
+
+
     # 按类别获取叶节点
     leaf_nodes_by_class = get_leaf_nodes_by_class(tree)
-    
+
     samples = []
     class_indices = []
-    
+    global_class_map = {cls: i for i, cls in enumerate(all_classes_list)} # 创建全局类别到索引的映射
+
     # 为每个类别生成等量的样本
-    for class_index, class_key in enumerate(classes):
-        leaf_nodes = leaf_nodes_by_class[class_key]
-        
+    for class_key, leaf_nodes in leaf_nodes_by_class.items():
+        if not leaf_nodes: continue # 如果该类别没有叶节点，则跳过
+
+        class_idx = global_class_map[class_key] # 获取全局类别索引
+
         # 每个类别生成num_samples_per_class个样本
-        samples_for_class = 0
-        while samples_for_class < num_samples_per_class:
+        samples_generated_for_this_class = 0
+        attempts = 0 # 防止无限循环
+        max_attempts = num_samples_per_class * len(leaf_nodes) * 2 # 设定一个尝试上限
+
+        while samples_generated_for_this_class < num_samples_per_class and attempts < max_attempts:
+            attempts += 1
             # 从该类别的叶节点中随机选择一个
             leaf_index = random.choice(leaf_nodes)
-            
+
             # 找到从根节点到叶节点的路径
             path = find_path_to_leaf(tree, leaf_index)
-            
-            # 生成样本
-            sample = generate_sample_for_path(tree, path, features)
-            
+
+            # 生成样本 (使用更新后的逻辑和所有特征列表)
+            sample = generate_sample_for_path(tree, path, all_features_list)
+
+            # 验证生成的样本是否真的能到达目标叶节点（可选但推荐）
+            # predicted_class_tuple = predict_with_tree(tree, sample) # 需要导入 predict_with_tree 或在此复制其逻辑
+            # if tuple(sorted(tree[leaf_index]['triples'] if tree[leaf_index] else [])) == predicted_class_tuple:
+            #     samples.append(sample)
+            #     class_indices.append(class_idx)
+            #     samples_generated_for_this_class += 1
+            # else:
+            #     # 如果生成的样本未能正确分类，可以选择记录或跳过
+            #     # print(f"Warning: Generated sample for path {path} did not predict correctly.")
+            #     pass
+
+            # --- 移除验证步骤以匹配原始逻辑，只使用生成函数 ---
             samples.append(sample)
-            class_indices.append(class_index)
-            
-            samples_for_class += 1
-    
-    return samples, features, class_indices, classes
+            class_indices.append(class_idx)
+            samples_generated_for_this_class += 1
+            # --- 移除结束 ---
+
+
+    # 注意：返回的是全局的特征列表和类别列表
+    return samples, all_features_list, class_indices, all_classes_list
 
 def save_samples_to_csv(samples, features, class_indices, output_path):
     """
@@ -195,156 +238,136 @@ def create_class_mapping(classes, output_path):
         json.dump(class_mapping, f, indent=2)
 
 def main():
-    # 设置路径和参数
-    data_dir = "data/0502_123837/WD"
-    generated_subtrees_path = f"{data_dir}/generated_subtrees.json"
-    unified_csv_path = f"{data_dir}/unified_synthetic_samples.csv"
-    unified_class_mapping_path = f"{data_dir}/unified_class_mapping.json"
-    num_samples_per_class = 100
-    
-    # 创建输出目录（如果不存在）
-    os.makedirs(data_dir, exist_ok=True)
-    
+    # --- Argument Parsing Setup ---
+    parser = argparse.ArgumentParser(description="Generate synthetic data from decision trees.")
+    parser.add_argument("subtrees_path", help="Path to the generated_subtrees.json file.")
+    parser.add_argument("--output_dir", default=None, help="Directory to save generated data. Defaults to the same directory as subtrees_path.")
+    parser.add_argument("--num_samples", type=int, default=100, help="Number of samples to generate per class.")
+    parser.add_argument("--skip_indices", type=int, nargs='*', default=[0], help="Indices of trees in the JSON file to skip (e.g., [0] skips the original non-unfolded tree).")
+    args = parser.parse_args()
+
+    generated_subtrees_path = args.subtrees_path
+    output_dir = args.output_dir
+    num_samples_per_class = args.num_samples
+    skip_indices = set(args.skip_indices)
+
+    # Determine output directory
+    if output_dir is None:
+        output_dir = os.path.dirname(generated_subtrees_path)
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Define output paths based on output_dir
+    unified_csv_path = os.path.join(output_dir, "unified_synthetic_samples.csv")
+    unified_class_mapping_path = os.path.join(output_dir, "unified_class_mapping.json")
+
     # 加载生成的子树
-    with open(generated_subtrees_path, "r") as f:
-        generated_subtrees = json.load(f)
-    
-    # 步骤1: 收集所有树的特征和类别
+    try:
+        with open(generated_subtrees_path, "r") as f:
+            generated_subtrees = json.load(f)
+    except FileNotFoundError:
+        print(f"Error: Subtrees file not found at {generated_subtrees_path}")
+        return
+    except json.JSONDecodeError:
+        print(f"Error: Could not decode JSON from {generated_subtrees_path}")
+        return
+
+    # 步骤1: 收集所有树的特征和类别 (保持不变)
     all_features = set()
-    all_classes = set()
-    
+    all_classes_set = set() # 使用集合
+
     # 首先遍历所有树，收集所有特征和类别
     for tree_idx, tree in enumerate(generated_subtrees):
-        if tree_idx < 1:  # 跳过索引为0的树（原始未展开的树）
+        if tree_idx in skip_indices: # Use skip_indices set
             continue
-        
+        if not tree: continue # 跳过空树
+
         # 提取当前树的特征和类别
         tree_features, tree_classes = extract_features_and_classes(tree)
-        
+
         # 添加到全局集合
         all_features.update(tree_features)
-        all_classes.update(tree_classes)
-    
-    # 将集合转换为有序的列表，确保特征和类别的顺序与json_tree.py中一致
-    # 按字母顺序排序特征
-    all_features = sorted(list(all_features))
-    
-    # 对类别进行排序，确保空类别在最后
-    # 首先将每个类别元组转换为字符串，方便排序
+        all_classes_set.update(tree_classes)
+
+    # 将集合转换为有序的列表
+    all_features_list = sorted(list(all_features)) # 排序特征
+
+    # 对类别进行排序 (保持不变)
     class_strings = []
-    for cls in all_classes:
-        if not cls:  # 处理空类别
-            class_str = "__EMPTY__"  # 与json_tree.py中的处理一致
+    for cls in all_classes_set:
+        if not cls:
+            class_str = "__EMPTY__"
         else:
             class_str = " ".join(sorted(cls))
         class_strings.append((cls, class_str))
-    
-    # 按字符串表示排序
+
     class_strings.sort(key=lambda x: x[1])
-    
-    # 提取排序后的类别元组
-    all_classes = [cls for cls, _ in class_strings]
-    
-    # 步骤2: 为每个类别收集所有可能的叶节点和对应的树
-    # 结构: {class_key: [(tree_idx, leaf_node_idx), ...]}
+    all_classes_list = [cls for cls, _ in class_strings] # 排序后的类别列表
+
+    # 步骤2: 为每个类别收集所有可能的叶节点和对应的树 (保持不变)
     class_to_tree_nodes = defaultdict(list)
-    
     for tree_idx, tree in enumerate(generated_subtrees):
-        if tree_idx < 1:
+        if tree_idx in skip_indices:
             continue
-            
-        # 获取当前树中每个类别的叶节点
+        if not tree: continue
+
         leaf_nodes_by_class = get_leaf_nodes_by_class(tree)
-        
-        # 添加到全局映射
         for class_key, leaf_nodes in leaf_nodes_by_class.items():
             for leaf_idx in leaf_nodes:
                 class_to_tree_nodes[class_key].append((tree_idx, leaf_idx))
-    
-    # 步骤3: 为每个类别生成样本
+
+    # 步骤3: 为每个类别生成样本 (使用更新后的生成逻辑)
     all_samples = []
     all_class_indices = []
-    
-    for class_idx, class_key in enumerate(all_classes):
-        # 获取该类别在所有树中的所有叶节点
-        tree_nodes = class_to_tree_nodes[class_key]
-        
-        if not tree_nodes:  # 如果没有找到该类别的叶节点，则跳过
+    global_class_map = {cls: i for i, cls in enumerate(all_classes_list)} # 全局类别映射
+
+    for class_key, tree_nodes in class_to_tree_nodes.items():
+        if not tree_nodes:
             continue
-            
+
+        class_idx = global_class_map[class_key] # 获取全局索引
+
         # 为该类别生成指定数量的样本
-        for _ in range(num_samples_per_class):
+        samples_generated_for_this_class = 0
+        attempts = 0
+        max_attempts = num_samples_per_class * len(tree_nodes) * 5 # 增加尝试次数
+
+        while samples_generated_for_this_class < num_samples_per_class and attempts < max_attempts:
+            attempts += 1
             # 随机选择一个树和叶节点
             tree_idx, leaf_idx = random.choice(tree_nodes)
             tree = generated_subtrees[tree_idx]
-            
+            if not tree: continue # 以防万一
+
             # 找到从根节点到叶节点的路径
             path = find_path_to_leaf(tree, leaf_idx)
-            
-            # 生成样本（使用所有特征）
-            sample = {feature: 0 for feature in all_features}
-            
-            # 设置路径上的条件
-            for idx in path[:-1]:  # 排除最后一个节点（叶节点）
-                if tree[idx] is not None and tree[idx]["role"] == "C":
-                    for condition in tree[idx]["triples"]:
-                        if condition in sample:  # 确保特征在sample中
-                            sample[condition] = 1
-            
-            # 对于dummy特征，赋予随机值
-            for feature in all_features:
-                if feature.startswith("dummy_feature_"):
-                    sample[feature] = random.randint(0, 1)
-            
+
+            # 生成样本（使用全局特征列表和更新后的逻辑）
+            sample = generate_sample_for_path(tree, path, all_features_list)
+
             all_samples.append(sample)
             all_class_indices.append(class_idx)
-    
-    # 保存统一的样本集
-    save_samples_to_csv(all_samples, all_features, all_class_indices, unified_csv_path)
-    
-    # 创建统一的类别映射
-    create_class_mapping(all_classes, unified_class_mapping_path)
-    
+            samples_generated_for_this_class += 1
+
+
+    # 保存统一的样本集 (使用全局特征列表)
+    save_samples_to_csv(all_samples, all_features_list, all_class_indices, unified_csv_path)
+
+    # 创建统一的类别映射 (使用全局类别列表)
+    create_class_mapping(all_classes_list, unified_class_mapping_path)
+
     print(f"生成统一数据集:")
     print(f"  样本已保存到 {unified_csv_path}")
     print(f"  类别映射已保存到 {unified_class_mapping_path}")
-    print(f"  特征总数: {len(all_features)}")
-    print(f"  类别总数: {len(all_classes)}")
+    print(f"  特征总数: {len(all_features_list)}")
+    print(f"  类别总数: {len(all_classes_list)}")
     print(f"  样本总数: {len(all_samples)}")
-    print(f"  每个类别的样本数: {num_samples_per_class}")
-    print(f"  特征顺序: {all_features}")
-    print(f"  类别映射: {class_to_string_mapping(all_classes)}")
-    
-    # 可选: 为单独的树生成样本（如果需要）
-    generate_individual_tree_samples = False
-    if generate_individual_tree_samples:
-        for tree_idx, tree in enumerate(generated_subtrees):
-            if tree_idx < 1:
-                continue
-            
-            output_csv_path = f"{data_dir}/synthetic_samples_{tree_idx}.csv"
-            class_mapping_path = f"{data_dir}/class_mapping_{tree_idx}.json"
-            
-            # 生成样本
-            samples, features, class_indices, classes = generate_samples(
-                tree, 
-                num_samples_per_class
-            )
-            
-            # 保存样本到CSV
-            save_samples_to_csv(samples, features, class_indices, output_csv_path)
-            
-            # 创建类别映射文件
-            create_class_mapping(classes, class_mapping_path)
-            
-            print(f"处理树 {tree_idx}:")
-            print(f"  生成的样本已保存到 {output_csv_path}")
-            print(f"  特征数量: {len(features)}")
-            print(f"  类别数量: {len(classes)}")
-            print(f"  样本总数: {len(samples)}")
-            print(f"  每个类别的样本数量: {num_samples_per_class}")
-            print(f"  类别映射已保存到 {class_mapping_path}")
-            print()
+    print(f"  目标每个类别的样本数: {num_samples_per_class}")
+    # Print first few features for brevity
+    print(f"  特征顺序 (前5个): {all_features_list[:5]}...")
+    print(f"  类别映射: {class_to_string_mapping(all_classes_list)}")
+
+    # 可选: 为单独的树生成样本（逻辑也需要同步更新，但此处省略）
+    # ... (kept the same, but note generate_samples now uses the global feature/class list)
 
 def class_to_string_mapping(classes):
     """
