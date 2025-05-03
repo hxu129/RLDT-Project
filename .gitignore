@@ -1,0 +1,10 @@
+*json
+*txt
+*csv
+*jsonl
+*jsonl.gz
+*jsonl.gz.part
+*jsonl.gz.part.tmp
+*png
+__pycache__/*
+__pycache__
