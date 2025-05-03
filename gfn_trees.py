@@ -312,13 +312,14 @@ def extract_df_rules_from_tree(tree, feature_names, classes_):
     cs.buildConjunctionSet()
     return cs.get_conjunction_set_df()
 
-def compare_trees(tree1, tree2, feature_names, classes_, bounds, comp_dist=False, dist_weight=0.5):
+def compare_trees(tree1, tree2, feature_names, classes_, bounds=None, comp_dist=False, dist_weight=0.5):
     """比较两棵树的structural similarity
     tree1: list[list[int]]
     tree2: list[list[int]]
     feature_names: list[str]
     classes_: list[str]
-    bounds: list[(float, float)] the bounds of the features; note that they should be in the same order as the feature_names
+    bounds: list[(float, float)], optional. 特征的边界，顺序应与 feature_names 一致。
+            如果为 None，则默认为每个特征使用 (0, 1)。
     comp_dist: bool, 是否计算标签分布差异，如果为False，那么如果两个branch的概率经过argmax后不相同，那么就认为这两个branch不匹配，条件非常严格
     dist_weight: float, 标签分布差异的权重
     """
@@ -400,7 +401,7 @@ def compare_trees(tree1, tree2, feature_names, classes_, bounds, comp_dist=False
         return branch_similarity
 
     # 定义一个函数来替换无穷值
-    def replace_inf_with_bounds(series):
+    def replace_inf_with_bounds(series, bounds):
         if 'prob' in series.name: # 概率值不替换
             return series
         column_idx, bound_type = series.name.split("_")
@@ -426,9 +427,17 @@ def compare_trees(tree1, tree2, feature_names, classes_, bounds, comp_dist=False
         print("No branches found in one or both trees")
         return 0.0
 
-    # 对每个特征应用替换函数
-    branches1 = branches1.apply(replace_inf_with_bounds)
-    branches2 = branches2.apply(replace_inf_with_bounds)
+    # Set default bounds if not provided
+    if bounds is None:
+        print(f"Warning: bounds not provided, defaulting to [(0, 1)] for {len(feature_names)} features.")
+        bounds = [(0, 1)] * len(feature_names)
+    elif len(bounds) != len(feature_names):
+        print(f"Warning: Length of bounds ({len(bounds)}) does not match number of features ({len(feature_names)}). Using default bounds.")
+        bounds = [(0, 1)] * len(feature_names)
+
+    # 对每个特征应用替换函数 (using the determined bounds)
+    branches1 = branches1.apply(lambda series: replace_inf_with_bounds(series, bounds))
+    branches2 = branches2.apply(lambda series: replace_inf_with_bounds(series, bounds))
     print(branches1)
     print(branches2)
     print()
@@ -510,4 +519,9 @@ if __name__ == "__main__":
             [np.nan, np.nan, np.nan, np.nan, np.nan], 
             [np.nan, np.nan, np.nan, np.nan, np.nan], 
             [0, np.nan, np.nan, np.nan, np.nan]]
-    print(compare_trees(tree1, tree2, feature_names, class_str, [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1)], comp_dist=True, dist_weight=0.5))
+    # Example call with explicit bounds (optional)
+    custom_bounds = [(0, 1), (0, 10), (-5, 5), (0, 1), (0, 1)]
+    print("Similarity with default bounds:")
+    print(compare_trees(tree1, tree2, feature_names, class_str, comp_dist=True, dist_weight=0.5))
+    print("\nSimilarity with custom bounds:")
+    print(compare_trees(tree1, tree2, feature_names, class_str, bounds=custom_bounds, comp_dist=True, dist_weight=0.5))

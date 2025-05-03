@@ -194,7 +194,7 @@ def create_similarity_calculator(json_file_path, save_maps=True, output_dir='.')
     print(f"Loaded {len(valid_trees)} valid trees for similarity calculation.")
     
     # 创建比较函数
-    def calculate_average_similarity(input_tree, comp_dist=True, dist_weight=0.5):
+    def calculate_average_similarity(input_tree, comp_dist=True, dist_weight=0.5, bounds=None):
         """
         计算输入树与JSON文件中所有树的平均相似度
         
@@ -202,6 +202,7 @@ def create_similarity_calculator(json_file_path, save_maps=True, output_dir='.')
             input_tree (list): 输入树，格式与gfn_trees.py中的tree1/tree2相同
             comp_dist (bool): 是否比较标签分布
             dist_weight (float): 标签分布差异的权重
+            bounds (list, optional): 特征边界。如果为 None，将在 compare_trees 中使用默认值。
             
         Returns:
             float: 平均相似度
@@ -213,7 +214,8 @@ def create_similarity_calculator(json_file_path, save_maps=True, output_dir='.')
             return 0.0
             
         # 定义特征边界（默认为0-1）
-        bounds = [(0, 1) for _ in range(len(feature_names))]
+        # Let compare_trees handle default bounds if bounds is None
+        # bounds = bounds if bounds is not None else [(0, 1) for _ in range(len(feature_names))]
         
         # 计算输入树与每棵树的相似度
         similarities = []
@@ -230,6 +232,8 @@ def create_similarity_calculator(json_file_path, save_maps=True, output_dir='.')
             similarities.append(similarity)
             
         # 计算平均相似度
+        if not similarities:
+             return 0.0
         average_similarity = sum(similarities) / len(similarities)
         
         return average_similarity

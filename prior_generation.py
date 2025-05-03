@@ -528,50 +528,56 @@ def create_structural_prior(
     
     return os.path.abspath(output_file)
 
-def calculate_similarity_to_priors(
-    new_tree_json,
+def calculate_average_similarity(
+    new_tree_numerical,
     priors_json,
     comp_dist=True,
-    dist_weight=0.5
+    dist_weight=0.5,
+    bounds=None
 ):
     """
-    计算新树与结构先验集的平均相似度
-    
+    计算新树（数值格式）与结构先验集的平均相似度
+
     Args:
-        new_tree_json: 新树的 JSON 文件路径或树对象
-        priors_json: 结构先验的 JSON 文件路径
-        comp_dist: 是否比较标签分布
-        dist_weight: 标签分布差异的权重
-        
+        new_tree_numerical (list or np.ndarray): 新树，格式为数值列表的列表 (gfn_trees.py main中的格式).
+                                                 **重要**: 此树必须使用与 priors_json 文件
+                                                 相同的特征和类别映射进行编码。
+        priors_json (str): 结构先验的 JSON 文件路径.
+        comp_dist (bool): 是否比较标签分布.
+        dist_weight (float): 标签分布差异的权重.
+        bounds (list, optional): 特征的边界列表，例如 [(0, 1), (0, 1), ...]。
+                                 如果为 None，将在 compare_trees 中使用默认值。
+
     Returns:
-        float: 与结构先验的平均相似度
+        float: 与结构先验的平均相似度. 返回 0.0 如果无法计算（例如先验文件无效）。
     """
     from json_tree import create_similarity_calculator
-    
-    # 创建相似度计算器
+
+    # 创建相似度计算器 (这会处理先验树的加载和数值转换)
     print(f"创建相似度计算器，使用先验文件: {priors_json}")
-    similarity_calculator = create_similarity_calculator(priors_json, save_maps=False)
-    
-    # 如果提供的是JSON路径，则加载并处理树
-    if isinstance(new_tree_json, str):
-        # 使用 json_tree.py 中的 process_json_trees 处理新树
-        print(f"处理新树: {new_tree_json}")
-        new_trees, _, _ = process_json_trees(new_tree_json, save_maps=False)
-        if not new_trees or not new_trees[0]:
-            print("错误: 新树处理失败")
-            return 0.0
-        new_tree_numerical = new_trees[0]
-    else:
-        # 假设已提供处理好的数值格式树
-        print("使用已处理的数值格式树")
-        new_tree_numerical = new_tree_json
-    
-    # 计算相似度
-    print("计算相似度...")
-    similarity = similarity_calculator(new_tree_numerical, comp_dist=comp_dist, dist_weight=dist_weight)
-    print(f"相似度计算结果: {similarity:.4f}")
-    
-    return similarity
+    try:
+        similarity_calculator = create_similarity_calculator(priors_json, save_maps=False)
+    except FileNotFoundError:
+        print(f"错误: 先验文件 {priors_json} 未找到。")
+        return 0.0
+    except Exception as e:
+        print(f"错误: 创建相似度计算器时出错: {e}")
+        return 0.0
+
+    # 直接使用预处理的 new_tree_numerical 调用计算器
+    print("计算与先验树的平均相似度...")
+    try:
+        similarity = similarity_calculator(
+            input_tree=new_tree_numerical,
+            comp_dist=comp_dist,
+            dist_weight=dist_weight, 
+            bounds=bounds
+        )
+        print(f"平均相似度计算结果: {similarity:.4f}")
+        return similarity
+    except Exception as e:
+        print(f"错误: 计算相似度时出错: {e}")
+        return 0.0
 
 def run_complete_pipeline(
     dataset_path="all_trees.json",
