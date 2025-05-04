@@ -74,15 +74,15 @@ def visualize_bfs_tree(bfs_tree, filename="decision_tree", view=False, format='p
 
         # --- Define Edges (only for Conditional nodes) ---
         if role == 'C':
-            # Left child (Condition True/Present)
+            # Left child (Condition False/Absent)
             left_child_idx = 2 * i + 1
             if left_child_idx < n and bfs_tree[left_child_idx] is not None:
-                dot.edge(node_id, str(left_child_idx), label="Present / True")
+                dot.edge(node_id, str(left_child_idx), label="Absent / False")
 
-            # Right child (Condition False/Absent)
+            # Right child (Condition True/Present)
             right_child_idx = 2 * i + 2
             if right_child_idx < n and bfs_tree[right_child_idx] is not None:
-                dot.edge(node_id, str(right_child_idx), label="Absent / False")
+                dot.edge(node_id, str(right_child_idx), label="Present / True")
 
     # --- Render Graph ---
     try:

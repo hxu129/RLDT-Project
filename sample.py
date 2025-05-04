@@ -157,31 +157,13 @@ def unfold_pointer_tree(root):
         root.value['triples'] = [conditions[0]]
         # root 的 logical_rel 将在递归结束后根据情况设置为 'null'
 
-        # 左节点是 True，右节点是 False
+        # 左节点是 False，右节点是 True
         if original_logical_rel == 'or':
-            # 展开 'or' 节点:
-            # root 结构: left=original_left, right=new_node
-            # new_node 结构: left=copy(original_left), right=original_right
-
-            root.right = new_node # root 的右子节点变为 new_node
-
-            # new_node 的子节点设置为：左边是 original_left 的拷贝，右边是 original_right
-            new_node.left = copy_node(original_left, new_node) # 拷贝左子树，父节点设为 new_node
-            new_node.right = original_right
-            if new_node.right: # 如果 original_right 存在，更新其父节点为 new_node
-                new_node.right.parent = new_node
-
-            # root 的左子节点保持不变 (original_left)，确保其父指针仍指向 root
-            if root.left != original_left: root.left = original_left # 安全检查
-            if root.left:
-                 root.left.parent = root
-
-        elif original_logical_rel == 'and':
-            # 展开 'and' 节点:
+            # 展开 'or' 节点: (A or B) -> If A is False (Left), evaluate B. If A is True (Right), result is original True branch.
             # root 结构: left=new_node, right=original_right
             # new_node 结构: left=original_left, right=copy(original_right)
 
-            root.left = new_node # root 的左子节点变为 new_node
+            root.left = new_node # root 的左子节点变为 new_node (evaluate B if A is False)
 
             # new_node 的子节点设置为：左边是 original_left，右边是 original_right 的拷贝
             new_node.left = original_left
@@ -189,10 +171,28 @@ def unfold_pointer_tree(root):
                 new_node.left.parent = new_node
             new_node.right = copy_node(original_right, new_node) # 拷贝右子树，父节点设为 new_node
 
-            # root 的右子节点保持不变 (original_right)，确保其父指针仍指向 root
+            # root 的右子节点保持不变 (original_right)，确保其父指针仍指向 root (result is original True branch if A is True)
             if root.right != original_right: root.right = original_right # 安全检查
             if root.right:
                  root.right.parent = root
+
+        elif original_logical_rel == 'and':
+            # 展开 'and' 节点: (A and B) -> If A is False (Left), result is original False branch. If A is True (Right), evaluate B.
+            # root 结构: left=original_left, right=new_node
+            # new_node 结构: left=copy(original_left), right=original_right
+
+            root.right = new_node # root 的右子节点变为 new_node (evaluate B if A is True)
+
+            # new_node 的子节点设置为：左边是 original_left 的拷贝，右边是 original_right
+            new_node.left = copy_node(original_left, new_node) # 拷贝左子树，父节点设为 new_node
+            new_node.right = original_right
+            if new_node.right: # 如果 original_right 存在，更新其父节点为 new_node
+                new_node.right.parent = new_node
+
+            # root 的左子节点保持不变 (original_left)，确保其父指针仍指向 root (result is original False branch if A is False)
+            if root.left != original_left: root.left = original_left # 安全检查
+            if root.left:
+                 root.left.parent = root
         else:
             # 如果存在多个 triple 但逻辑关系不是 'and' 或 'or'，则抛出错误
             raise ValueError(f"Invalid logical relation '{original_logical_rel}' for node with multiple triples")

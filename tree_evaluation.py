@@ -10,6 +10,7 @@ from json_tree import process_json_trees
 def predict_with_tree(tree, sample, debug=False):
     """
     使用决策树对单个样本进行预测，增加调试输出
+    Logic: Left = False / Absent, Right = True / Present
     
     Args:
         tree: BFS格式的树
@@ -26,6 +27,13 @@ def predict_with_tree(tree, sample, debug=False):
     
     path = []
     while True:
+        # Boundary check for current index
+        if current_node_idx >= len(tree) or tree[current_node_idx] is None:
+            if debug:
+                print(f"Reached invalid node index {current_node_idx} or None node. Returning empty class.")
+                print(f"Path taken: {path}")
+            return tuple([]) # Return empty class if we fall off the tree
+            
         current_node = tree[current_node_idx]
         path.append(current_node_idx)
         
@@ -33,7 +41,7 @@ def predict_with_tree(tree, sample, debug=False):
             print(f"当前节点 {current_node_idx}:", current_node)
         
         # 如果是叶节点，返回其类别
-        if current_node is None or current_node["role"] == "D":
+        if current_node["role"] == "D":
             result = tuple(sorted(current_node["triples"] if current_node else []))
             if debug:
                 print(f"到达叶节点，返回类别: {result}")
@@ -43,37 +51,38 @@ def predict_with_tree(tree, sample, debug=False):
         # 如果是条件节点
         if current_node["role"] == "C":
             conditions = current_node["triples"]
-            assert len(conditions) == 1, f"Conditions at index {current_node_idx} should have exactly one condition, but got {len(conditions)}"
+            # After unfolding, expect exactly one condition
+            if not conditions or len(conditions) != 1:
+                 print(f"Warning: Expected 1 condition at node {current_node_idx}, found {len(conditions)}. Path: {path}. Returning empty class.")
+                 return tuple([]) # Treat as error/undefined path
+            
+            condition_tested = conditions[0]
             
             if debug:
-                print(f"条件节点条件: {conditions}")
-                present_conditions = [c for c in conditions if c in sample and sample[c] == 1]
-                print(f"样本中满足的条件: {present_conditions}")
+                print(f"条件节点条件: {condition_tested}")
+                value_in_sample = sample.get(condition_tested, 0) # Default to 0 if feature not present
+                print(f"样本中特征 '{condition_tested}' 的值: {value_in_sample}")
             
-            # 检查条件是否满足
-            condition_satisfied = False
-            for condition in conditions:
-                if condition in sample and sample[condition] == 1:
-                    condition_satisfied = True
-                    if debug:
-                        print(f"条件 '{condition}' 满足，走左子树")
-                    break
+            # Check if condition is satisfied (present/True -> value is 1)
+            condition_satisfied = (condition_tested in sample and sample[condition_tested] == 1)
             
-            # 根据条件决定走左子树还是右子树
+            # 根据条件决定走左子树 (False) 还是右子树 (True)
             if condition_satisfied:
-                # 左子树
-                current_node_idx = 2 * current_node_idx + 1
-            else:
-                # 右子树
-                current_node_idx = 2 * current_node_idx + 2
+                # Go Right (True)
+                next_node_idx = 2 * current_node_idx + 2
                 if debug:
-                    print(f"所有条件都不满足，走右子树")
-        
-        # 超出范围检查
-        if current_node_idx >= len(tree) or tree[current_node_idx] is None:
-            if debug:
-                print(f"超出树范围，返回空类别")
-            return tuple([])
+                    print(f"条件 '{condition_tested}' 满足 (1), 走右子树 -> {next_node_idx}")
+            else:
+                # Go Left (False)
+                next_node_idx = 2 * current_node_idx + 1
+                if debug:
+                    print(f"条件 '{condition_tested}' 不满足 (0), 走左子树 -> {next_node_idx}")
+                    
+            current_node_idx = next_node_idx
+        else:
+             # Should not happen if tree structure is correct (only C or D roles)
+             print(f"Warning: Unknown node role '{current_node.get('role')}' at index {current_node_idx}. Path: {path}. Returning empty class.")
+             return tuple([])
 
 def count_internal_nodes(tree):
     """

@@ -85,7 +85,7 @@ def get_leaf_nodes_by_class(tree):
 def generate_sample_for_path(tree, path, features):
     """
     For a given path, generate a sample that strictly follows that path.
-    Features tested on the path are set deterministically (1 for left, 0 for right).
+    Features tested on the path are set deterministically (0 for left/False, 1 for right/True).
     Other features are randomized.
 
     Args:
@@ -126,14 +126,17 @@ def generate_sample_for_path(tree, path, features):
         features_tested_on_path.add(feature_tested)
 
         left_child_idx = 2 * current_idx + 1
-        # right_child_idx = 2 * current_idx + 2 # Implicit
+        right_child_idx = 2 * current_idx + 2
 
         if next_idx_on_path == left_child_idx:
-            # Path goes left (True branch) -> Feature MUST be 1
+            # Path goes left (False branch) -> Feature MUST be 0
+            sample[feature_tested] = 0
+        elif next_idx_on_path == right_child_idx:
+            # Path goes right (True branch) -> Feature MUST be 1
             sample[feature_tested] = 1
         else:
-            # Path goes right (False branch) -> Feature MUST be 0
-            sample[feature_tested] = 0
+             # Should not happen for a valid path
+             print(f"Warning: Path deviation detected at node {current_idx} for path {path}")
 
     # Features not explicitly tested on this path retain their random values from initialization.
     # No additional randomization step is needed here as it was done initially.
