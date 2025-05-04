@@ -43,6 +43,7 @@ def predict_with_tree(tree, sample, debug=False):
         # 如果是条件节点
         if current_node["role"] == "C":
             conditions = current_node["triples"]
+            assert len(conditions) == 1, f"Conditions at index {current_node_idx} should have exactly one condition, but got {len(conditions)}"
             
             if debug:
                 print(f"条件节点条件: {conditions}")

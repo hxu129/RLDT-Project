@@ -292,7 +292,7 @@ def generate_synthetic_data(
         print("错误: generated_subtrees.json 需要至少包含索引为 1 的树 (ground truth) 用于生成样本。")
         return {}
         
-    ground_truth_tree_idx = 1
+    ground_truth_tree_idx = 1 # subtree里存了所有树的结构，第1个是unfolded的原始树
     if ground_truth_tree_idx >= len(generated_subtrees) or generated_subtrees[ground_truth_tree_idx] is None:
          print(f"错误: 索引为 {ground_truth_tree_idx} 的 ground truth 树不存在或为空。")
          return {}
@@ -693,12 +693,12 @@ def main():
         
         # 树采样参数 - 更宽松的参数，以便通过质量检查
         'sample_params': {
-            'depth_low': 3,      # 从最小深度1开始
-            'depth_high': 10,    # 最大深度增至10
+            'depth_low': 2,      # 从最小深度1开始
+            'depth_high': 4,    # 最大深度增至10
             'K_low': 3,          # 最少3个分类
             'K_high': 20,        # 最多20个分类
-            'condition_count_low': 5,  # 最少5个条件
-            'condition_count_high': 30, # 最多30个条件
+            'condition_count_low': 4,  # 最少5个条件
+            'condition_count_high': 5, # 最多30个条件
         },
         
         # 子树生成参数

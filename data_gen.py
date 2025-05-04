@@ -96,6 +96,7 @@ def generate_sample_for_path(tree, path, features):
     """
     # 初始化样本，所有特征都为0
     sample = {feature: 0 for feature in features}
+    features_on_path = []
 
     # 设置路径上的条件，严格遵循预测逻辑
     for i in range(len(path) - 1): # 遍历路径上的节点，直到叶节点的父节点
@@ -104,18 +105,21 @@ def generate_sample_for_path(tree, path, features):
 
         node = tree[current_idx]
         if node is None or node["role"] != "C":
-            continue # 跳过非条件节点
+            assert False, f"Node at index {current_idx} is not a condition node."
 
         conditions = node["triples"]
         left_child_idx = 2 * current_idx + 1
+        # 在这里，左是 True，右是 False
         # right_child_idx = 2 * current_idx + 2 # 不需要显式使用右子节点索引
 
         if next_idx_on_path == left_child_idx:
             # 如果路径走向左子节点，设置第一个条件为1以满足OR逻辑
             if conditions: # 确保条件列表不为空
                 first_condition = conditions[0]
+                assert len(conditions) == 1, f"Conditions at index {current_idx} should have exactly one condition, but got {len(conditions)}"
                 if first_condition in sample: # 确保特征存在
-                     sample[first_condition] = 1
+                    sample[first_condition] = 1
+                    features_on_path.append(first_condition)
         # else:
             # 如果路径走向右子节点，不需要做任何事
             # 因为所有特征已初始化为0，且我们只在走左分支时设置特征为1
@@ -124,7 +128,7 @@ def generate_sample_for_path(tree, path, features):
 
     # 对于dummy特征，赋予随机值
     for feature in features:
-        if feature.startswith("dummy_feature_"):
+        if feature not in features_on_path:
             sample[feature] = random.randint(0, 1)
 
     return sample

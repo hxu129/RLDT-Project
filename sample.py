@@ -157,8 +157,9 @@ def unfold_pointer_tree(root):
         root.value['triples'] = [conditions[0]]
         # root 的 logical_rel 将在递归结束后根据情况设置为 'null'
 
-        if original_logical_rel == 'and':
-            # 展开 'and' 节点:
+        # 左节点是 True，右节点是 False
+        if original_logical_rel == 'or':
+            # 展开 'or' 节点:
             # root 结构: left=original_left, right=new_node
             # new_node 结构: left=copy(original_left), right=original_right
 
@@ -175,8 +176,8 @@ def unfold_pointer_tree(root):
             if root.left:
                  root.left.parent = root
 
-        elif original_logical_rel == 'or':
-            # 展开 'or' 节点:
+        elif original_logical_rel == 'and':
+            # 展开 'and' 节点:
             # root 结构: left=new_node, right=original_right
             # new_node 结构: left=original_left, right=copy(original_right)
 
@@ -437,8 +438,10 @@ def get_a_child_tree(root, depth):
         return None, []
     if random.random() < 0.5 - 0.05 * depth:
         return root, get_all_nodes(root)
-    else:
+    elif random.random() < 0.5:
         return get_a_child_tree(root.left, depth + 1)
+    else:
+        return get_a_child_tree(root.right, depth + 1)
 
 def generate_subtree(original_tree_input, generation_params):
     """Generate a subtree from the original tree"""
