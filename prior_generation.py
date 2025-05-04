@@ -64,7 +64,7 @@ def sample_and_generate_trees(
     sample_params=None,
     generation_params=None,
     output_dir=None,
-    save_original_tree=True
+    save_original_tree=True,
 ):
     """
     从原始树集合中采样，并生成多样化的子树结构
@@ -122,7 +122,7 @@ def sample_and_generate_trees(
     # 这部分逻辑简化自 sample.py 的 sample_trees 函数
     sampled_trees, disease_names = [], []
     attempts = 0
-    max_attempts = 100
+    max_attempts = sample_params['max_attempts']
     
     print(f"开始采样，目标: {num_sample_data} 棵树，最大尝试次数: {max_attempts}")
     
@@ -688,26 +688,28 @@ def main():
     params = {
         'dataset_path': "all_trees.json",  # 原始树数据集路径
         'output_dir': None,  # 自动生成带时间戳的目录
-        'num_sample_data': 1,  # 采样树的数量（此处设为1以加快演示）
-        'num_desired_subtrees': 1,  # 每棵采样树生成的子树数量
+        'num_sample_data': 7,  # 采样树的数量（此处设为1以加快演示）
+        'num_desired_subtrees': 100,  # 每棵采样树生成的子树数量
         
         # 树采样参数 - 更宽松的参数，以便通过质量检查
         'sample_params': {
-            'depth_low': 2,      # 从最小深度1开始
-            'depth_high': 4,    # 最大深度增至10
+            'depth_low': 3,      # 从最小深度2开始
+            'depth_high': 10,    # 最大深度增至10
             'K_low': 3,          # 最少3个分类
-            'K_high': 20,        # 最多20个分类
-            'condition_count_low': 4,  # 最少5个条件
-            'condition_count_high': 5, # 最多30个条件
+            'K_high': 5,        # 最多5个分类
+            'condition_count_low': 8,  # 最少4个条件
+            'condition_count_high': 100, # 最多5个条件
+            'max_attempts': 400, # 最大尝试次数
         },
         
         # 子树生成参数
         'generation_params': {
             'p_swap_children': 0.05,    # 交换子节点概率
-            'p_prune': 0.05,           # 剪枝概率
-            'p_keep_feature': 0.8,     # 保留特征概率
-            'p_add_dummy': 0.05,       # 添加虚拟特征概率
-            'p_add_dummy_parent_layer': 0.05,  # 添加虚拟父层概率
+            'p_deactivate': 0.07,           # 失活概率
+            'p_prune': 0.1, # 剪枝概率
+            'p_keep_feature': 0.75,     # 保留特征概率
+            'p_add_dummy': 0.01,       # 添加虚拟特征概率
+            'p_add_dummy_parent_layer': 0.01,  # 添加虚拟父层概率
         },
         
         # 数据生成参数

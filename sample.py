@@ -432,16 +432,16 @@ def get_all_nodes(root):
         return []
     return [root] + get_all_nodes(root.left) + get_all_nodes(root.right)
 
-def get_a_child_tree(root, depth):
+def get_a_child_tree(root, depth, p_prune):
     """Get a child tree from the root"""
     if root is None:
         return None, []
-    if random.random() < 0.5 - 0.05 * depth:
+    if random.random() < 1 - p_prune - 0.05 * depth:
         return root, get_all_nodes(root)
     elif random.random() < 0.5:
-        return get_a_child_tree(root.left, depth + 1)
+        return get_a_child_tree(root.left, depth + 1, p_prune)
     else:
-        return get_a_child_tree(root.right, depth + 1)
+        return get_a_child_tree(root.right, depth + 1, p_prune)
 
 def generate_subtree(original_tree_input, generation_params):
     """Generate a subtree from the original tree"""
@@ -453,7 +453,7 @@ def generate_subtree(original_tree_input, generation_params):
                 assert node.right is not None, "node.right is None"
                 assert node.left is not None, "node.left is None"
         # 0. Get a child tree
-        temp_root, temp_nodes = get_a_child_tree(root, 0)
+        temp_root, temp_nodes = get_a_child_tree(root, 0, generation_params['p_prune'])
         if temp_root is not None:
             root, nodes = temp_root, temp_nodes
         for node in nodes:
@@ -461,7 +461,7 @@ def generate_subtree(original_tree_input, generation_params):
             if random.random() < generation_params['p_swap_children']:
                 swap_children(node)
             # 2. Determine whether to deactivate a node
-            if random.random() < generation_params['p_prune']:
+            if random.random() < generation_params['p_deactivate']:
                 deactivate_node(node)
                 continue # 如果节点被deactivate，则不进行后续操作
             # 3. Sample the condition set
