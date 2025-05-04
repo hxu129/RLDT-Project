@@ -84,7 +84,9 @@ def get_leaf_nodes_by_class(tree):
 
 def generate_sample_for_path(tree, path, features):
     """
-    为给定路径生成一个样本 (修改后逻辑)
+    For a given path, generate a sample that strictly follows that path.
+    Features tested on the path are set deterministically (1 for left, 0 for right).
+    Other features are randomized.
 
     Args:
         tree: 树的BFS表示
@@ -94,42 +96,47 @@ def generate_sample_for_path(tree, path, features):
     Returns:
         sample: 生成的样本，特征值为0或1
     """
-    # 初始化样本，所有特征都为0
-    sample = {feature: 0 for feature in features}
-    features_on_path = []
+    # Initialize sample with random values first
+    sample = {feature: random.randint(0, 1) for feature in features}
+    features_tested_on_path = set()
 
-    # 设置路径上的条件，严格遵循预测逻辑
-    for i in range(len(path) - 1): # 遍历路径上的节点，直到叶节点的父节点
+    # Enforce path constraints
+    for i in range(len(path) - 1): # Iterate through internal nodes on the path
         current_idx = path[i]
         next_idx_on_path = path[i+1]
-
         node = tree[current_idx]
+
         if node is None or node["role"] != "C":
             assert False, f"Node at index {current_idx} is not a condition node."
 
         conditions = node["triples"]
+        # After unfolding, there should only be one condition per C node
+        if not conditions:
+            print(f"Warning: Condition node {current_idx} has no conditions in path {path}")
+            continue
+        
+        # Assert that there's exactly one condition after unfolding
+        assert len(conditions) == 1, f"Node {current_idx} in unfolded tree should have 1 condition, got {len(conditions)}"
+        feature_tested = conditions[0]
+        
+        if feature_tested not in sample:
+             print(f"Warning: Feature '{feature_tested}' tested at node {current_idx} not in global feature list for path {path}. Skipping constraint.")
+             continue # Skip if the feature isn't in the global list (shouldn't happen ideally)
+
+        features_tested_on_path.add(feature_tested)
+
         left_child_idx = 2 * current_idx + 1
-        # 在这里，左是 True，右是 False
-        # right_child_idx = 2 * current_idx + 2 # 不需要显式使用右子节点索引
+        # right_child_idx = 2 * current_idx + 2 # Implicit
 
         if next_idx_on_path == left_child_idx:
-            # 如果路径走向左子节点，设置第一个条件为1以满足OR逻辑
-            if conditions: # 确保条件列表不为空
-                first_condition = conditions[0]
-                assert len(conditions) == 1, f"Conditions at index {current_idx} should have exactly one condition, but got {len(conditions)}"
-                if first_condition in sample: # 确保特征存在
-                    sample[first_condition] = 1
-                    features_on_path.append(first_condition)
-        # else:
-            # 如果路径走向右子节点，不需要做任何事
-            # 因为所有特征已初始化为0，且我们只在走左分支时设置特征为1
-            # 这确保了走向右分支时，该节点的所有条件都为0，满足预测逻辑
-            # pass
+            # Path goes left (True branch) -> Feature MUST be 1
+            sample[feature_tested] = 1
+        else:
+            # Path goes right (False branch) -> Feature MUST be 0
+            sample[feature_tested] = 0
 
-    # 对于dummy特征，赋予随机值
-    for feature in features:
-        if feature not in features_on_path:
-            sample[feature] = random.randint(0, 1)
+    # Features not explicitly tested on this path retain their random values from initialization.
+    # No additional randomization step is needed here as it was done initially.
 
     return sample
 
